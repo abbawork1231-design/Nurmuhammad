@@ -83,7 +83,7 @@ export default function App() {
           className="relative w-full max-w-[220px] aspect-[5/5] mx-auto -mb-3"
         >
           <img
-            src="/DSC05965.png"
+            src="/src/doniyoraka.png"
             alt="Expert"
             className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]"
             onError={(e) => {

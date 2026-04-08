@@ -88,7 +88,7 @@ export default function App() {
             className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]"
             onError={(e) => {
               // Fallback to a high-quality placeholder if the link fails
-              e.currentTarget.src = "https://drive.google.com/uc?export=download&id=1xa7a7O2AlSOfpX9yTsDjGkYHthl1FC-Q";
+              e.currentTarget.src = "https://ibb.co/d0SF91ZP";
             }}
             referrerPolicy="no-referrer"
           />

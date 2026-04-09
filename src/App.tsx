@@ -77,6 +77,7 @@ const DEFAULT_EXPERT_IMAGE = "https://drive.google.com/uc?export=download&id=1xa
 function LandingPage() {
   const navigate = useNavigate();
   const [clickCount, setClickCount] = useState(0);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [expertImage, setExpertImage] = useState<string>(() => {
     return localStorage.getItem("expertImageUrl") || DEFAULT_EXPERT_IMAGE;
   });
@@ -85,11 +86,14 @@ function LandingPage() {
     const unsub = onSnapshot(doc(db, "config", "main"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.expertImageUrl) {
-          setExpertImage(data.expertImageUrl);
-          localStorage.setItem("expertImageUrl", data.expertImageUrl);
+        if (data.expertImageUrl && data.expertImageUrl !== expertImage) {
+          // Preload the new image before switching to avoid flicker
           const img = new Image();
           img.src = data.expertImageUrl;
+          img.onload = () => {
+            setExpertImage(data.expertImageUrl);
+            localStorage.setItem("expertImageUrl", data.expertImageUrl);
+          };
         }
       }
     }, (error) => {
@@ -97,7 +101,7 @@ function LandingPage() {
     });
 
     return () => unsub();
-  }, []);
+  }, [expertImage]);
 
   // Hidden admin trigger
   const handleBadgeClick = () => {
@@ -144,9 +148,9 @@ function LandingPage() {
         />
 
         <img
-          src="https://drive.google.com/uc?export=download&id=1xa7a7O2AlSOfpX9yTsDjGkYHthl1FC-Q"
+          src={expertImage}
           alt="Background"
-          className="w-full h-full object-cover opacity-10 mix-blend-luminosity"
+          className="w-full h-full object-cover opacity-10 mix-blend-luminosity blur-sm"
           referrerPolicy="no-referrer"
         />
       </div>
@@ -185,14 +189,21 @@ function LandingPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
-          className="relative w-full max-w-[220px] aspect-[5/5] mx-auto -mb-3"
+          className="relative w-full max-w-[220px] aspect-[5/5] mx-auto -mb-3 flex items-center justify-center"
         >
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-10 h-10 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin" />
+            </div>
+          )}
           <img
             src={expertImage}
             alt="Expert"
-            className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]"
+            onLoad={() => setImageLoaded(true)}
+            className={`w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onError={(e) => {
               e.currentTarget.src = DEFAULT_EXPERT_IMAGE;
+              setImageLoaded(true);
             }}
             referrerPolicy="no-referrer"
           />

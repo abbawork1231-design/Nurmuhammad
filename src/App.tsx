@@ -77,9 +77,8 @@ const DEFAULT_EXPERT_IMAGE = "https://drive.google.com/uc?export=download&id=1xa
 function LandingPage() {
   const navigate = useNavigate();
   const [clickCount, setClickCount] = useState(0);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [expertImage, setExpertImage] = useState<string>(() => {
-    // Try to get the ultra-fast base64 version first, then the URL, then default
+    // Try to get the cached version first, then default
     return localStorage.getItem("expertImageBase64") || 
            localStorage.getItem("expertImageUrl") || 
            DEFAULT_EXPERT_IMAGE;
@@ -87,8 +86,10 @@ function LandingPage() {
 
   // Function to convert image URL to Base64 for instant loading next time
   const cacheImageAsBase64 = async (url: string) => {
+    if (!url || url.startsWith('data:') || url.includes('drive.google.com')) return null;
     try {
       const response = await fetch(url);
+      if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -97,7 +98,6 @@ function LandingPage() {
         reader.readAsDataURL(blob);
       });
     } catch (e) {
-      console.warn("Base64 caching failed:", e);
       return null;
     }
   };
@@ -109,19 +109,16 @@ function LandingPage() {
         const newUrl = data.expertImageUrl;
         
         if (newUrl && newUrl !== localStorage.getItem("expertImageUrl")) {
-          // Preload and cache
-          const img = new Image();
-          img.src = newUrl;
-          img.onload = async () => {
-            setExpertImage(newUrl);
-            localStorage.setItem("expertImageUrl", newUrl);
-            
-            // Aggressive caching: convert to base64 for 0ms delay next time
-            const base64 = await cacheImageAsBase64(newUrl);
+          // Update immediately so user sees the change
+          setExpertImage(newUrl);
+          localStorage.setItem("expertImageUrl", newUrl);
+          
+          // Then try to cache it as base64 for the NEXT visit
+          cacheImageAsBase64(newUrl).then(base64 => {
             if (base64) {
               localStorage.setItem("expertImageBase64", base64);
             }
-          };
+          });
         }
       }
     }, (error) => {
@@ -219,19 +216,17 @@ function LandingPage() {
           transition={{ delay: 0.4 }}
           className="relative w-full max-w-[220px] aspect-[5/5] mx-auto -mb-3 flex items-center justify-center"
         >
-          {!imageLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-10 h-10 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin" />
-            </div>
-          )}
           <img
+            key={expertImage}
             src={expertImage}
             alt="Expert"
-            onLoad={() => setImageLoaded(true)}
-            className={`w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]"
             onError={(e) => {
-              e.currentTarget.src = DEFAULT_EXPERT_IMAGE;
-              setImageLoaded(true);
+              console.warn("Image load failed, falling back to default");
+              if (expertImage !== DEFAULT_EXPERT_IMAGE) {
+                setExpertImage(DEFAULT_EXPERT_IMAGE);
+                localStorage.removeItem("expertImageBase64");
+              }
             }}
             referrerPolicy="no-referrer"
           />

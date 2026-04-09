@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "appConfig": {
+      "title": "App Configuration",
+      "description": "Global configuration for the application, including image URLs.",
+      "type": "object",
+      "properties": {
+        "expertImageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL of the expert's photo."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp."
+        }
+      },
+      "required": ["expertImageUrl"]
+    }
+  },
+  "firestore": {
+    "config/main": {
+      "schema": "appConfig",
+      "description": "Main application configuration document."
+    }
+  }
+}

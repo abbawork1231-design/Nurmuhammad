@@ -3,11 +3,115 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, ArrowRight, Instagram, Send, Youtube } from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/src/lib/firebase";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import AdminPanel from "@/src/components/AdminPanel";
 
-export default function App() {
+// Error Boundary Component
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<any, any> {
+  state: any;
+  props: any;
+
+  constructor(props: any) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
+
+  public static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: any) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      let errorMessage = "Kutilmagan xatolik yuz berdi.";
+      try {
+        const errorData = JSON.parse(this.state.error?.message || "{}");
+        if (errorData.error) {
+          errorMessage = `Firebase xatoligi: ${errorData.error}`;
+        }
+      } catch {
+        errorMessage = this.state.error?.message || errorMessage;
+      }
+
+      return (
+        <div className="h-screen bg-black flex items-center justify-center p-6 text-center">
+          <div className="space-y-4 max-w-md">
+            <h1 className="text-2xl font-bold text-red-500">Xatolik yuz berdi</h1>
+            <p className="text-zinc-400">{errorMessage}</p>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Sahifani yangilash
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Fallback image in case Firestore is empty or fails
+const DEFAULT_EXPERT_IMAGE = "https://drive.google.com/uc?export=download&id=1xa7a7O2AlSOfpX9yTsDjGkYHthl1FC-Q";
+
+function LandingPage() {
+  const navigate = useNavigate();
+  const [clickCount, setClickCount] = useState(0);
+  const [expertImage, setExpertImage] = useState<string>(() => {
+    return localStorage.getItem("expertImageUrl") || DEFAULT_EXPERT_IMAGE;
+  });
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "main"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.expertImageUrl) {
+          setExpertImage(data.expertImageUrl);
+          localStorage.setItem("expertImageUrl", data.expertImageUrl);
+          const img = new Image();
+          img.src = data.expertImageUrl;
+        }
+      }
+    }, (error) => {
+      console.error("Firestore error:", error);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Hidden admin trigger
+  const handleBadgeClick = () => {
+    setClickCount(prev => {
+      if (prev + 1 >= 5) {
+        navigate("/admin");
+        return 0;
+      }
+      return prev + 1;
+    });
+    // Reset count after 2 seconds of inactivity
+    setTimeout(() => setClickCount(0), 2000);
+  };
+
   const points = [
     "Qanday qilib istalgan biznesni qisqa muddatda rivojlantirish usuli.",
     "Mobilografiya orqali istalgan instagram profil daromadini 5x oshirish rejasi.",
@@ -48,11 +152,12 @@ export default function App() {
       </div>
 
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-4 max-w-lg mx-auto w-full">
-        {/* Top Badge */}
+        {/* Top Badge - Hidden Trigger */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/5 backdrop-blur-md border border-white/10 px-4 py-1.5 rounded-full mb-2"
+          onClick={handleBadgeClick}
+          className="bg-white/5 backdrop-blur-md border border-white/10 px-4 py-1.5 rounded-full mb-2 cursor-default select-none active:scale-95 transition-transform"
         >
           <span className="text-[10px] font-bold tracking-[0.2em] text-orange-500 uppercase">Narxi: BEPUL</span>
         </motion.div>
@@ -83,18 +188,17 @@ export default function App() {
           className="relative w-full max-w-[220px] aspect-[5/5] mx-auto -mb-3"
         >
           <img
-            src="/src/doniyoraka.png"
+            src={expertImage}
             alt="Expert"
             className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]"
             onError={(e) => {
-              // Fallback to a high-quality placeholder if the link fails
-              e.currentTarget.src = "https://ibb.co/d0SF91ZP";
+              e.currentTarget.src = DEFAULT_EXPERT_IMAGE;
             }}
             referrerPolicy="no-referrer"
           />
         </motion.div>
 
-        {/* CTA Button - Smaller and moved down */}
+        {/* CTA Button */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -113,7 +217,7 @@ export default function App() {
           </Button>
         </motion.div>
 
-        {/* Benefits List - Now at the bottom */}
+        {/* Benefits List */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,5 +253,18 @@ export default function App() {
         </motion.div>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/admin" element={<AdminPanel />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

@@ -321,7 +321,7 @@ export default function AdminPanel() {
                         />
                       </div>
                       <p className="text-[10px] text-zinc-600 font-medium leading-relaxed italic">
-                        Maslahat: Google Drive yoki boshqa ochiq manbalardan rasm linkini qo'yishingiz ham mumkin.
+                        Maslahat: Sayt tez yuklanishi uchun rasm hajmini kichraytiring (masalan, <a href="https://tinypng.com" target="_blank" className="text-orange-500 underline">tinypng.com</a> orqali).
                       </p>
                     </div>
                   </div>

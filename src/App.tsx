@@ -79,20 +79,48 @@ function LandingPage() {
   const [clickCount, setClickCount] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [expertImage, setExpertImage] = useState<string>(() => {
-    return localStorage.getItem("expertImageUrl") || DEFAULT_EXPERT_IMAGE;
+    // Try to get the ultra-fast base64 version first, then the URL, then default
+    return localStorage.getItem("expertImageBase64") || 
+           localStorage.getItem("expertImageUrl") || 
+           DEFAULT_EXPERT_IMAGE;
   });
+
+  // Function to convert image URL to Base64 for instant loading next time
+  const cacheImageAsBase64 = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn("Base64 caching failed:", e);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "config", "main"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.expertImageUrl && data.expertImageUrl !== expertImage) {
-          // Preload the new image before switching to avoid flicker
+        const newUrl = data.expertImageUrl;
+        
+        if (newUrl && newUrl !== localStorage.getItem("expertImageUrl")) {
+          // Preload and cache
           const img = new Image();
-          img.src = data.expertImageUrl;
-          img.onload = () => {
-            setExpertImage(data.expertImageUrl);
-            localStorage.setItem("expertImageUrl", data.expertImageUrl);
+          img.src = newUrl;
+          img.onload = async () => {
+            setExpertImage(newUrl);
+            localStorage.setItem("expertImageUrl", newUrl);
+            
+            // Aggressive caching: convert to base64 for 0ms delay next time
+            const base64 = await cacheImageAsBase64(newUrl);
+            if (base64) {
+              localStorage.setItem("expertImageBase64", base64);
+            }
           };
         }
       }
@@ -101,7 +129,7 @@ function LandingPage() {
     });
 
     return () => unsub();
-  }, [expertImage]);
+  }, []);
 
   // Hidden admin trigger
   const handleBadgeClick = () => {
